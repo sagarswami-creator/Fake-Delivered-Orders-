@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Station Ops Dashboard · Swiggy IRCTC</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --n900:#080F1E; --n800:#0D1729; --n700:#142038; --n600:#1B2C4A;
+  --orange:#FF6B00; --orange-l:#FF8C30; --orange-d:rgba(255,107,0,0.12);
+  --teal:#00C9A7; --teal-d:rgba(0,201,167,0.10);
+  --red:#FF4D4D; --red-d:rgba(255,77,77,0.10);
+  --yellow:#FFB800; --yellow-d:rgba(255,184,0,0.10);
+  --purple:#A78BFA; --purple-d:rgba(167,139,250,0.10);
+  --slate:#7B8EA8; --slate-l:#A8B8CF;
+  --white:#FFFFFF; --text:#E2EAF4;
+  --border:rgba(255,255,255,0.07); --card:rgba(255,255,255,0.03);
+  --r:10px; --rs:7px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--n900);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── LOCK ─────────────────────────────────────────── */
+#lockScreen{position:fixed;inset:0;background:var(--n900);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;transition:opacity .35s,transform .35s;padding:20px}
+#lockScreen.out{opacity:0;transform:translateY(-20px);pointer-events:none}
+
+.lock-brand{display:flex;align-items:center;gap:12px;margin-bottom:30px}
+.lock-brand .b{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--orange);letter-spacing:-.3px}
+.lock-brand .div{width:1px;height:18px;background:var(--border)}
+.lock-brand .s{font-size:10px;font-weight:600;color:var(--slate);letter-spacing:1px;text-transform:uppercase}
+
+.lock-card{background:var(--n800);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:380px}
+.lock-label{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:var(--white);margin-bottom:5px}
+.lock-sub{font-size:12px;color:var(--slate);line-height:1.6;margin-bottom:24px}
+
+.code-input{width:100%;background:var(--n700);border:1.5px solid var(--border);border-radius:var(--r);color:var(--white);font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;letter-spacing:5px;text-align:center;padding:14px;outline:none;text-transform:uppercase;transition:border-color .2s;margin-bottom:12px;display:block}
+.code-input:focus{border-color:var(--orange)}
+.code-input.err{border-color:var(--red);animation:shake .3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+.unlock-btn{width:100%;background:var(--orange);border:none;border-radius:var(--r);color:#fff;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;letter-spacing:.3px;transition:background .2s,transform .1s}
+.unlock-btn:hover{background:var(--orange-l)}.unlock-btn:active{transform:scale(.98)}
+.err-msg{color:var(--red);font-size:11px;margin-top:9px;min-height:15px}
+.load-status{display:flex;align-items:center;gap:8px;font-size:11px;margin-top:16px;color:var(--slate)}
+.spin{width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:rot .8s linear infinite;flex-shrink:0}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+.setup-notice{background:var(--n700);border:1px solid rgba(255,184,0,.2);border-radius:8px;padding:14px 16px;margin-top:18px;text-align:left}
+.setup-notice .nt{font-size:10px;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.setup-notice .ns{font-size:11px;color:var(--slate-l);line-height:1.8;display:flex;gap:8px}
+.setup-notice .ns b{color:var(--white)}
+
+/* ── DASHBOARD ────────────────────────────────────── */
+#dash{display:none;min-height:100vh}
+#dash.on{display:block}
+
+/* Header */
+.hdr{background:var(--n800);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:50}
+.hdr-l{display:flex;align-items:center;gap:16px}
+.hdr-brand{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:var(--orange);letter-spacing:.3px}
+.hdr-divider{width:1px;height:18px;background:var(--border)}
+.stn-tag{display:flex;align-items:center;gap:8px}
+.stn-code{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--white);letter-spacing:1px}
+.stn-name{font-size:11px;color:var(--slate);padding-left:8px;border-left:1px solid var(--border)}
+.hdr-r{display:flex;align-items:center;gap:10px}
+.refresh-info{font-size:10px;color:var(--slate);text-align:right;line-height:1.5}
+.refresh-info .time{color:var(--slate-l)}
+.ghost-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--slate);font-size:11px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;white-space:nowrap}
+.ghost-btn:hover{border-color:var(--slate-l);color:var(--text)}
+.ghost-btn.active-refresh{border-color:var(--orange);color:var(--orange)}
+
+/* KPI Strip */
+.kpi-strip{padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;background:var(--n800);border-bottom:1px solid var(--border)}
+.kpi{background:var(--n700);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi.o::before{background:var(--orange)}.kpi.t::before{background:var(--teal)}.kpi.y::before{background:var(--yellow)}.kpi.p::before{background:var(--purple)}
+.kpi-lbl{font-size:9.5px;color:var(--slate);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+.kpi-val{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;color:var(--white);line-height:1}
+.kpi-sub{font-size:10px;color:var(--slate);margin-top:3px}
+
+/* Tabs */
+.tabs{padding:0 20px;background:var(--n800);display:flex;gap:0;border-bottom:1px solid var(--border)}
+.tab{background:transparent;border:none;color:var(--slate);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;padding:13px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;letter-spacing:.2px}
+.tab:hover{color:var(--text)}.tab.on{color:var(--orange);border-bottom-color:var(--orange)}
+
+/* Content */
+.content{padding:18px}
+.panel{display:none}.panel.on{display:block}
+
+/* Filter bar */
+.fbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.finput{flex:1;min-width:160px;background:var(--n700);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:12px;padding:7px 12px;outline:none;transition:border-color .2s;font-family:'Inter',sans-serif}
+.finput:focus{border-color:var(--orange)}.finput::placeholder{color:var(--slate)}
+.fsel{background:var(--n700);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:12px;padding:7px 11px;outline:none;cursor:pointer;font-family:'Inter',sans-serif}
+.fcount{font-size:11px;color:var(--slate);white-space:nowrap;margin-left:2px}
+
+/* Table */
+.twrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--n700);color:var(--slate-l);font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:10px 13px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);position:sticky;top:0;user-select:none}
+thead th.sortable{cursor:pointer}
+thead th.sortable:hover{color:var(--text)}
+thead th.sorted-asc::after{content:' \2191';color:var(--orange)}
+thead th.sorted-desc::after{content:' \2193';color:var(--orange)}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.035);transition:background .1s}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+tbody tr:last-child{border-bottom:none}
+td{padding:8px 13px;color:var(--text);white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+td.mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--slate-l)}
+td.num{font-family:'JetBrains Mono',monospace;font-size:12px;text-align:right}
+td.num.penalty{color:var(--red)}
+td.num.orders{color:var(--teal)}
+
+/* Date separator rows */
+.drow td{background:rgba(255,107,0,.06)!important;color:var(--slate-l)!important;font-family:'Space Grotesk',sans-serif!important;font-size:10.5px!important;font-weight:700!important;padding:6px 13px!important;letter-spacing:.4px;text-transform:uppercase}
+
+/* Badges */
+.badge{display:inline-block;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:600;letter-spacing:.2px}
+.bt{background:var(--teal-d);color:var(--teal)}.br{background:var(--red-d);color:var(--red)}.by{background:var(--yellow-d);color:var(--yellow)}.bo{background:var(--orange-d);color:var(--orange)}
+
+/* Pagination */
+.pag{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--slate);flex-wrap:wrap;gap:6px}
+.pbtns{display:flex;gap:4px}
+.pbtn{background:var(--n700);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:4px 9px;cursor:pointer;font-size:11px;font-family:'Inter',sans-serif;transition:all .15s}
+.pbtn:hover{border-color:var(--orange);color:var(--orange)}.pbtn:disabled{opacity:.3;cursor:default;pointer-events:none}
+
+/* Month cards */
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.mcard{background:var(--n800);border:1px solid var(--border);border-radius:var(--r);padding:16px;cursor:pointer;transition:border-color .2s,background .15s}
+.mcard:hover{border-color:rgba(255,107,0,.4);background:var(--n700)}
+.mcard-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.mname{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:var(--white)}
+.mtot{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--orange)}
+.mstats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mstat{background:var(--n700);border-radius:6px;padding:9px 10px}
+.mstat-lbl{font-size:9.5px;color:var(--slate);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.mstat-val{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;color:var(--white)}
+
+/* Runner Scorecard */
+.scorecard-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.scorecard-title{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:var(--white)}
+.scorecard-sub{font-size:11px;color:var(--slate);margin-top:2px}
+.runner-detail-section{margin-top:20px;border-top:1px solid var(--border);padding-top:18px}
+.runner-detail-label{font-size:10px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.runner-detail-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.runner-highlight{display:inline-block;background:var(--orange-d);border:1px solid rgba(255,107,0,.25);border-radius:5px;padding:2px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);font-weight:700}
+th.sc-runner{min-width:160px}
+
+/* Detail header */
+.dethdr{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.dettitle{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:var(--white)}
+.detsub{font-size:11px;color:var(--slate);margin-top:2px}
+
+/* Empty */
+.empty{text-align:center;padding:48px 20px;color:var(--slate)}
+.empty h3{font-family:'Space Grotesk',sans-serif;color:var(--slate-l);margin-bottom:5px;font-size:14px}
+.empty p{font-size:11px}
+
+@media(max-width:600px){
+  .kpi-strip{grid-template-columns:1fr 1fr}.hdr{padding:0 14px}.content{padding:12px}.stn-name{display:none}.refresh-info{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ LOCK ═══ -->
+<div id="lockScreen">
+  <div class="lock-brand">
+    <span class="b">Swiggy IRCTC</span>
+    <span class="div"></span>
+    <span class="s">Station Ops</span>
+  </div>
+  <div class="lock-card">
+    <div class="lock-label">Station Dashboard</div>
+    <div class="lock-sub">Enter your station code to access operations data</div>
+    <input id="codeInput" class="code-input" type="text" placeholder="NDLS" maxlength="8" autocomplete="off" spellcheck="false">
+    <button class="unlock-btn" id="unlockBtn">Access Dashboard</button>
+    <div class="err-msg" id="errMsg"></div>
+    <div class="load-status" id="loadStatus">
+      <div class="spin" id="spinner"></div>
+      <span id="loadTxt">Loading sheet data…</span>
+    </div>
+    <div class="setup-notice" id="setupNotice" style="display:none">
+      <div class="nt">Setup Required</div>
+      <div class="ns"><span style="color:var(--orange);font-weight:700;flex-shrink:0">1.</span>Google Sheet must be set to <b>Anyone with the link → Viewer</b></div>
+      <div class="ns" style="margin-top:4px"><span style="color:var(--orange);font-weight:700;flex-shrink:0">2.</span>Host this file on <b>GitHub Pages</b> — cannot fetch live data from Claude's preview</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div id="dash">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-l">
+      <div class="hdr-brand">Swiggy IRCTC</div>
+      <div class="hdr-divider"></div>
+      <div class="stn-tag">
+        <span class="stn-code" id="hdrCode">—</span>
+        <span class="stn-name" id="hdrName"></span>
+      </div>
+    </div>
+    <div class="hdr-r">
+      <div class="refresh-info">
+        <div>Last refreshed</div>
+        <div class="time" id="refreshTime">—</div>
+      </div>
+      <button class="ghost-btn" id="refreshBtn" onclick="refreshData()">Refresh</button>
+      <button class="ghost-btn" onclick="logout()">Change Station</button>
+    </div>
+  </div>
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip">
+    <div class="kpi o"><div class="kpi-lbl">Total Records</div><div class="kpi-val" id="kTotal">—</div><div class="kpi-sub" id="kTotalSub">all time</div></div>
+    <div class="kpi t"><div class="kpi-lbl">Runners</div><div class="kpi-val" id="kRunners">—</div><div class="kpi-sub">active runners</div></div>
+    <div class="kpi y"><div class="kpi-lbl">Active Days</div><div class="kpi-val" id="kDays">—</div><div class="kpi-sub">unique dates</div></div>
+    <div class="kpi p"><div class="kpi-lbl">Total Penalty</div><div class="kpi-val" id="kPenalty" style="font-size:18px;margin-top:4px">—</div><div class="kpi-sub">sum of all penalties</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab on" onclick="switchTab('day',this)">Day View</button>
+    <button class="tab" onclick="switchTab('month',this)">Monthly</button>
+    <button class="tab" onclick="switchTab('runner',this)">Runner Scorecard</button>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- DAY VIEW -->
+    <div class="panel on" id="p-day">
+      <div class="fbar">
+        <input class="finput" id="daySearch" placeholder="Search records…" oninput="renderDay()">
+        <input class="fsel" type="date" id="dFrom" onchange="renderDay()">
+        <input class="fsel" type="date" id="dTo" onchange="renderDay()">
+        <button class="ghost-btn" onclick="clearDay()">Clear</button>
+        <span class="fcount" id="dayCount"></span>
+      </div>
+      <div id="dayTable"></div>
+      <div class="pag" id="dayPag"></div>
+    </div>
+
+    <!-- MONTH VIEW -->
+    <div class="panel" id="p-month"><div id="monthContent"></div></div>
+
+    <!-- RUNNER SCORECARD -->
+    <div class="panel" id="p-runner">
+      <div id="runnerScorecard"></div>
+      <div class="runner-detail-section" id="runnerDetailSection" style="display:none">
+        <div class="runner-detail-label">Records for <span class="runner-highlight" id="rdName" style="margin-left:8px"></span></div>
+        <div id="runnerTable"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1l917BVHVvrq-FaLYfbkoCNueXQ-po0yP-nvY_TZIf18';
+const DATA_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=0`;
+const COLS = [0,1,2,3,4,10,11,12,13,15,16,17,18,20];
+const PAGE = 50;
+
+let allRows=[], headers=[], stRows=[], dataReady=false;
+let dayFiltered=[], curPage=1;
+let COL_DATE=0, COL_RUNNER=4, COL_STA=2, COL_PENALTY=-1;
+let currentStation='';
+let scorecardSort={col:'orders',asc:false};
+
+// ── Load ──────────────────────────────────────────────────────────────
+async function load(isRefresh=false) {
+  if(isRefresh) {
+    const btn=document.getElementById('refreshBtn');
+    btn.textContent='Refreshing…';
+    btn.disabled=true;
+  }
+  try {
+    const res = await fetch(DATA_URL + '&t=' + Date.now());
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    const jsonStr = text.slice(text.indexOf('{'), text.lastIndexOf('}')+1);
+    const json = JSON.parse(jsonStr);
+    if(!json.table) throw new Error('No table');
+
+    headers = json.table.cols.map(c => c.label||c.id||'');
+    allRows = json.table.rows
+      .filter(r=>r&&r.c&&r.c.some(c=>c&&c.v!==null&&c.v!==''))
+      .map(r=>json.table.cols.map((_,i)=>{
+        const c=r.c[i];
+        if(!c||c.v===null||c.v===undefined) return '';
+        return c.f!==undefined?String(c.f):String(c.v);
+      }));
+
+    COL_DATE    = hFind(['date'])??0;
+    COL_RUNNER  = hFind(['runner','exec','de name','agent'])??4;
+    COL_STA     = hFind(['station code','stn code','stationcode'])??2;
+    COL_PENALTY = hFind(['penalty','fine','deduction'])??-1;
+
+    const now = new Date();
+    document.getElementById('refreshTime').textContent =
+      now.toLocaleDateString('en-IN',{day:'numeric',month:'short'})+', '+
+      now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+
+    dataReady=true;
+
+    if(isRefresh && currentStation) {
+      // Re-filter for current station and re-render
+      stRows = allRows.filter(r=>(r[COL_STA]||'').trim().toUpperCase()===currentStation);
+      updateKPIs();
+      document.getElementById('hdrCount').textContent && (document.getElementById('hdrCount').textContent=`${stRows.length} records`);
+      renderDay(); renderMonth(); renderRunnerScorecard();
+      const btn=document.getElementById('refreshBtn');
+      btn.textContent='Refresh';
+      btn.disabled=false;
+      btn.classList.add('active-refresh');
+      setTimeout(()=>btn.classList.remove('active-refresh'),2000);
+    } else {
+      document.getElementById('spinner').style.display='none';
+      document.getElementById('loadTxt').textContent=`${allRows.length} records loaded — enter station code`;
+      document.getElementById('loadStatus').style.color='var(--teal)';
+      document.getElementById('codeInput').focus();
+    }
+  } catch(e) {
+    console.error(e);
+    if(isRefresh) {
+      const btn=document.getElementById('refreshBtn');
+      btn.textContent='Retry';
+      btn.disabled=false;
+    } else {
+      document.getElementById('spinner').style.display='none';
+      document.getElementById('loadTxt').innerHTML='<span style="color:var(--red)">Could not load sheet data</span>';
+      document.getElementById('setupNotice').style.display='block';
+    }
+  }
+}
+
+function refreshData() { load(true); }
+
+function hFind(kws) {
+  const i=headers.findIndex(h=>kws.some(k=>h.toLowerCase().includes(k)));
+  return i>=0?i:null;
+}
+
+// ── Unlock ────────────────────────────────────────────────────────────
+document.getElementById('codeInput').addEventListener('keydown',e=>{ if(e.key==='Enter') unlock(); });
+document.getElementById('unlockBtn').addEventListener('click',unlock);
+
+function unlock() {
+  if(!dataReady){showErr('Still loading, please wait…');return;}
+  const code=document.getElementById('codeInput').value.trim().toUpperCase();
+  if(!code){showErr('Enter a station code');return;}
+  let filtered=allRows.filter(r=>(r[COL_STA]||'').trim().toUpperCase()===code);
+  if(!filtered.length) filtered=allRows.filter(r=>(r[COL_STA]||'').trim().toUpperCase().includes(code));
+  if(!filtered.length){showErr(`No records found for "${code}"`);return;}
+  stRows=filtered;
+  currentStation=code;
+  openDash(code);
+}
+
+function showErr(msg) {
+  document.getElementById('codeInput').classList.add('err');
+  document.getElementById('errMsg').textContent=msg;
+  setTimeout(()=>document.getElementById('codeInput').classList.remove('err'),400);
+}
+
+function openDash(code) {
+  document.getElementById('hdrCode').textContent=code;
+  const nameCol=hFind(['station name','stn name']);
+  const nm=stRows[0]?.[nameCol??3]||'';
+  document.getElementById('hdrName').textContent=nm?nm:'';
+  updateKPIs();
+
+  document.getElementById('lockScreen').classList.add('out');
+  setTimeout(()=>{
+    document.getElementById('lockScreen').style.display='none';
+    document.getElementById('dash').classList.add('on');
+    curPage=1;
+    renderDay(); renderMonth(); renderRunnerScorecard();
+
+    // Set refresh timestamp on open
+    const now=new Date();
+    document.getElementById('refreshTime').textContent=
+      now.toLocaleDateString('en-IN',{day:'numeric',month:'short'})+', '+
+      now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  },350);
+}
+
+function updateKPIs() {
+  document.getElementById('kTotal').textContent=stRows.length;
+  document.getElementById('kRunners').textContent=new Set(stRows.map(r=>r[COL_RUNNER]).filter(Boolean)).size;
+  document.getElementById('kDays').textContent=new Set(stRows.map(r=>r[COL_DATE]).filter(Boolean)).size;
+
+  if(COL_PENALTY>=0) {
+    const total=stRows.reduce((s,r)=>s+parseNum(r[COL_PENALTY]),0);
+    document.getElementById('kPenalty').textContent=total>0?fmtCurr(total):'0';
+    document.getElementById('kPenalty').style.color=total>0?'var(--red)':'var(--text)';
+  } else {
+    document.getElementById('kPenalty').textContent='N/A';
+    document.getElementById('kPenalty').style.fontSize='14px';
+  }
+}
+
+function logout() {
+  document.getElementById('lockScreen').style.display='flex';
+  document.getElementById('lockScreen').classList.remove('out');
+  document.getElementById('dash').classList.remove('on');
+  document.getElementById('codeInput').value='';
+  document.getElementById('errMsg').textContent='';
+  stRows=[];curPage=1;currentStation='';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function parseDt(s) {
+  if(!s||!s.trim()) return null;
+  let m;
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if(m){const d=new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`);if(!isNaN(d))return d;}
+  m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(m){const d=new Date(`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`);if(!isNaN(d))return d;}
+  const d=new Date(s);return isNaN(d)?null:d;
+}
+function fmtShort(d){return d?d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'—'}
+function fmtFull(d){return d?d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):null}
+function fmtMonth(d){return d?d.toLocaleDateString('en-IN',{month:'long',year:'numeric'}):'Unknown'}
+function mKey(d){return d?`${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`:'zz'}
+function parseNum(s){if(!s)return 0;const n=parseFloat(String(s).replace(/[₹,\s]/g,''));return isNaN(n)?0:n;}
+function fmtCurr(n){return'₹'+n.toLocaleString('en-IN',{maximumFractionDigits:0});}
+
+function selRow(row){return COLS.map(i=>row[i]??'')}
+function selHdrs(){return COLS.map(i=>headers[i]||`Col ${String.fromCharCode(65+i)}`)}
+function cellHTML(v){
+  if(typeof v!=='string'||!v||v.length>55) return v;
+  const l=v.toLowerCase();
+  if(['delivered','completed','done','success'].some(k=>l.includes(k))) return`<span class="badge bt">${v}</span>`;
+  if(['cancelled','failed','reject','incorrect'].some(k=>l.includes(k))) return`<span class="badge br">${v}</span>`;
+  if(['pending','hold','waiting'].some(k=>l.includes(k))) return`<span class="badge by">${v}</span>`;
+  if(['transit','active','running','assigned'].some(k=>l.includes(k))) return`<span class="badge bo">${v}</span>`;
+  return v;
+}
+
+function buildTable(rows) {
+  if(!rows.length) return`<div class="empty"><h3>No records found</h3><p>Adjust filters to see data</p></div>`;
+  const ths=selHdrs().map(h=>`<th>${h}</th>`).join('');
+  const grps={},ord=[];
+  for(const row of rows){
+    const d=parseDt(row[COL_DATE]);
+    const key=fmtFull(d)||row[COL_DATE]||'Unknown Date';
+    if(!grps[key]){grps[key]=[];ord.push(key);}
+    grps[key].push(row);
+  }
+  let body='';
+  for(const key of ord){
+    body+=`<tr class="drow"><td colspan="${COLS.length}">${key} &nbsp;&middot;&nbsp; ${grps[key].length} records</td></tr>`;
+    for(const row of grps[key]){
+      const cells=selRow(row).map((v,ci)=>{
+        const colIdx=COLS[ci];
+        let cls='';
+        if(colIdx===COL_PENALTY)cls=' class="num penalty"';
+        else if(colIdx===COL_DATE)cls=' class="mono"';
+        return`<td${cls} title="${String(v).replace(/"/g,'&quot;')}">${cellHTML(v)}</td>`;
+      }).join('');
+      body+=`<tr>${cells}</tr>`;
+    }
+  }
+  return`<div class="twrap"><table><thead><tr>${ths}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+// ── Day View ──────────────────────────────────────────────────────────
+function clearDay(){
+  document.getElementById('daySearch').value='';
+  document.getElementById('dFrom').value='';
+  document.getElementById('dTo').value='';
+  renderDay();
+}
+function renderDay(){
+  const q=document.getElementById('daySearch').value.toLowerCase();
+  const from=document.getElementById('dFrom').value;
+  const to=document.getElementById('dTo').value;
+  dayFiltered=stRows.filter(row=>{
+    if(q&&!selRow(row).join(' ').toLowerCase().includes(q)) return false;
+    const d=parseDt(row[COL_DATE]);
+    if(from&&d&&d<new Date(from)) return false;
+    if(to&&d){const t=new Date(to);t.setHours(23,59,59);if(d>t)return false;}
+    return true;
+  });
+  document.getElementById('dayCount').textContent=`${dayFiltered.length} records`;
+  curPage=1;renderDayPage();
+}
+function renderDayPage(){
+  const start=(curPage-1)*PAGE;
+  document.getElementById('dayTable').innerHTML=buildTable(dayFiltered.slice(start,start+PAGE));
+  const tot=Math.ceil(dayFiltered.length/PAGE);
+  document.getElementById('dayPag').innerHTML=tot>1?`
+    <span>Page ${curPage} of ${tot} &nbsp;&middot;&nbsp; ${dayFiltered.length} records</span>
+    <div class="pbtns">
+      <button class="pbtn" onclick="pg(1)" ${curPage===1?'disabled':''}>&#171;</button>
+      <button class="pbtn" onclick="pg(${curPage-1})" ${curPage===1?'disabled':''}>Prev</button>
+      <button class="pbtn" onclick="pg(${curPage+1})" ${curPage>=tot?'disabled':''}>Next</button>
+      <button class="pbtn" onclick="pg(${tot})" ${curPage>=tot?'disabled':''}>&#187;</button>
+    </div>`:'';
+}
+function pg(n){curPage=Math.max(1,Math.min(n,Math.ceil(dayFiltered.length/PAGE)));renderDayPage();}
+
+// ── Month View ────────────────────────────────────────────────────────
+function renderMonth(){
+  const grps={},ord=[];
+  for(const row of stRows){
+    const d=parseDt(row[COL_DATE]),lbl=fmtMonth(d),sk=mKey(d);
+    if(!grps[lbl]){grps[lbl]={rows:[],sk};ord.push(lbl);}
+    grps[lbl].rows.push(row);
+  }
+  ord.sort((a,b)=>grps[b].sk.localeCompare(grps[a].sk));
+  let html='<div class="mgrid">';
+  for(const lbl of ord){
+    const{rows}=grps[lbl];
+    const runners=new Set(rows.map(r=>r[COL_RUNNER]).filter(Boolean)).size;
+    const days=new Set(rows.map(r=>r[COL_DATE]).filter(Boolean)).size;
+    const penalty=COL_PENALTY>=0?rows.reduce((s,r)=>s+parseNum(r[COL_PENALTY]),0):null;
+    html+=`<div class="mcard" onclick="monthDetail('${lbl.replace(/'/g,"\\'")}')">
+      <div class="mcard-top"><div class="mname">${lbl}</div><div class="mtot">${rows.length} records</div></div>
+      <div class="mstats">
+        <div class="mstat"><div class="mstat-lbl">Records</div><div class="mstat-val">${rows.length}</div></div>
+        <div class="mstat"><div class="mstat-lbl">Runners</div><div class="mstat-val">${runners}</div></div>
+        <div class="mstat"><div class="mstat-lbl">Active Days</div><div class="mstat-val">${days}</div></div>
+        <div class="mstat"><div class="mstat-lbl">${penalty!==null?'Total Penalty':'Avg / Day'}</div><div class="mstat-val" style="${penalty>0?'color:var(--red);font-size:14px':''}">${penalty!==null?(penalty>0?fmtCurr(penalty):'—'):(days?(rows.length/days).toFixed(1):'—')}</div></div>
+      </div></div>`;
+  }
+  document.getElementById('monthContent').innerHTML=html+'</div>';
+}
+function monthDetail(lbl){
+  const rows=stRows.filter(r=>fmtMonth(parseDt(r[COL_DATE]))===lbl);
+  document.getElementById('monthContent').innerHTML=`
+    <div class="dethdr">
+      <button class="ghost-btn" onclick="renderMonth()">&#8592; All Months</button>
+      <div><div class="dettitle">${lbl}</div><div class="detsub">${rows.length} records</div></div>
+    </div>${buildTable(rows)}`;
+}
+
+// ── Runner Scorecard ──────────────────────────────────────────────────
+function renderRunnerScorecard(){
+  document.getElementById('runnerDetailSection').style.display='none';
+  const grps={},ord=[];
+  for(const row of stRows){
+    const nm=(row[COL_RUNNER]||'Unknown').trim();
+    if(!grps[nm]){grps[nm]=[];ord.push(nm);}
+    grps[nm].push(row);
+  }
+
+  // Build scorecard data
+  const data=ord.map(nm=>{
+    const rows=grps[nm];
+    const penalty=COL_PENALTY>=0?rows.reduce((s,r)=>s+parseNum(r[COL_PENALTY]),0):null;
+    const days=new Set(rows.map(r=>r[COL_DATE]).filter(Boolean)).size;
+    return{nm,orders:rows.length,penalty,days,rows};
+  });
+
+  // Sort
+  data.sort((a,b)=>{
+    const v=scorecardSort.col==='penalty'?(a.penalty??0)-(b.penalty??0):a.orders-b.orders;
+    return scorecardSort.asc?v:-v;
+  });
+
+  const hasPenalty=COL_PENALTY>=0;
+  const sortArrow=(col)=>scorecardSort.col===col?(scorecardSort.asc?' &#8593;':' &#8595;'):'';
+
+  let rows='';
+  data.forEach((d,i)=>{
+    const rank=i+1;
+    rows+=`<tr>
+      <td class="mono" style="width:32px;color:var(--slate)">${rank}</td>
+      <td style="font-weight:600;color:var(--white);cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border)" onclick="showRunnerDetail('${d.nm.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">
+        ${d.nm}
+      </td>
+      <td class="num orders">${d.orders}</td>
+      <td class="num">${d.days}</td>
+      ${hasPenalty?`<td class="num penalty" style="${d.penalty>0?'':'color:var(--slate)'}">${d.penalty>0?fmtCurr(d.penalty):'—'}</td>`:''}
+      ${hasPenalty?`<td class="num" style="${d.penalty>0?'color:var(--red)':'color:var(--slate)'}">${d.orders>0&&d.penalty>0?fmtCurr(Math.round(d.penalty/d.orders)):'—'}</td>`:''}
+    </tr>`;
+  });
+
+  const totalPenalty=hasPenalty?data.reduce((s,d)=>s+(d.penalty??0),0):null;
+
+  document.getElementById('runnerScorecard').innerHTML=`
+    <div class="scorecard-hdr">
+      <div>
+        <div class="scorecard-title">Runner Scorecard &mdash; ${currentStation}</div>
+        <div class="scorecard-sub">${data.length} runners &nbsp;&middot;&nbsp; ${stRows.length} total records${totalPenalty>0?' &nbsp;&middot;&nbsp; Total penalty: <span style="color:var(--red);font-weight:600">'+fmtCurr(totalPenalty)+'</span>':''}</div>
+      </div>
+    </div>
+    <div class="twrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32px">#</th>
+            <th class="sc-runner">Runner Name</th>
+            <th class="sortable" onclick="scSort('orders')" style="text-align:right">Orders${sortArrow('orders')}</th>
+            <th style="text-align:right">Active Days</th>
+            ${hasPenalty?`<th class="sortable" onclick="scSort('penalty')" style="text-align:right">Total Penalty${sortArrow('penalty')}</th>`:''}
+            ${hasPenalty?`<th style="text-align:right">Penalty / Order</th>`:''}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function scSort(col){
+  if(scorecardSort.col===col) scorecardSort.asc=!scorecardSort.asc;
+  else{scorecardSort.col=col;scorecardSort.asc=false;}
+  renderRunnerScorecard();
+}
+
+function showRunnerDetail(nm){
+  const rows=stRows.filter(r=>(r[COL_RUNNER]||'').trim()===nm);
+  const penalty=COL_PENALTY>=0?rows.reduce((s,r)=>s+parseNum(r[COL_PENALTY]),0):null;
+  document.getElementById('rdName').textContent=nm;
+  const sec=document.getElementById('runnerDetailSection');
+  sec.style.display='block';
+  document.getElementById('runnerTable').innerHTML=buildTable(rows);
+  sec.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────
+function switchTab(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('p-'+id).classList.add('on');
+}
+
+load();
+</script>
+</body>
+</html>
