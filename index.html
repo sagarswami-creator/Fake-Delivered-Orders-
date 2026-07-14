@@ -352,8 +352,20 @@ function unlock() {
   if(!dataReady){showErr('Still loading, please wait…');return;}
   const code=document.getElementById('codeInput').value.trim().toUpperCase();
   if(!code){showErr('Enter a station code');return;}
+
+  // 1st: exact match on detected station column
   let filtered=allRows.filter(r=>(r[COL_STA]||'').trim().toUpperCase()===code);
-  if(!filtered.length) filtered=allRows.filter(r=>(r[COL_STA]||'').trim().toUpperCase().includes(code));
+
+  // 2nd: exact match across ALL columns
+  if(!filtered.length){
+    filtered=allRows.filter(r=>r.some(cell=>(cell||'').trim().toUpperCase()===code));
+  }
+
+  // 3rd: partial match across ALL columns
+  if(!filtered.length){
+    filtered=allRows.filter(r=>r.some(cell=>(cell||'').trim().toUpperCase().includes(code)));
+  }
+
   if(!filtered.length){showErr(`No records found for "${code}"`);return;}
   stRows=filtered;
   currentStation=code;
